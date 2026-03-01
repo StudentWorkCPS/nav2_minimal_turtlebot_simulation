@@ -1,9 +1,16 @@
 <?xml version="1.0" ?>
 <robot name="turtlebot4" xmlns:xacro="http://ros.org/wiki/xacro">
+  <!-- Namespace for Gazebo topics -->
+  <xacro:arg name="namespace" default=""/>
+  
+  <!-- Enable/disable RPLIDAR sensor (set to 0 to disable for performance testing) -->
+  <xacro:property name="enable_rplidar" value="0" />
+  
   <!-- Base create3 model -->
   <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/icreate/create3.urdf.xacro" />
   <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/sensors/rplidar.urdf.xacro" />
   <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/sensors/oakd.urdf.xacro" />
+  <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/sensors/proximity.urdf.xacro" />
   <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/sensors/camera_bracket.urdf.xacro" />
   <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/standard/tower_standoff.urdf.xacro" />
   <xacro:include filename="$(find nav2_minimal_tb4_description)/urdf/standard/tower_sensor_plate.urdf.xacro" />
@@ -69,14 +76,18 @@
   <!-- Turtlebot4 shell definition -->
   <link name="shell_link">
     <visual>
-      <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://nav2_minimal_tb4_description/meshes/shell.dae" scale="1 1 1" />
+        <box size="${shell_length} ${shell_radius*2} 0.08"/>
       </geometry>
+      <material name="darkgrey">
+        <color rgba="0.2 0.2 0.2 1"/>
+      </material>
     </visual>
     <collision name="shell_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://nav2_minimal_tb4_description/meshes/shell_collision.dae" scale="1 1 1" />
+        <box size="${shell_length} ${shell_radius*2} 0.08"/>
       </geometry>
     </collision>
     <inertial>
@@ -130,17 +141,35 @@
   </xacro:tower_sensor_plate>
 
   <!-- Turtlebot4 sensor definitions -->
-  <xacro:rplidar name="rplidar" parent_link="shell_link" gazebo="$(arg gazebo)">
-    <origin xyz="${rplidar_x_offset} ${rplidar_y_offset} ${rplidar_z_offset}"
-            rpy="0 0 ${pi/2}"/>
-  </xacro:rplidar>
+  <xacro:if value="${enable_rplidar}">
+    <xacro:rplidar name="rplidar" parent_link="shell_link" gazebo="$(arg gazebo)" namespace="$(arg namespace)">
+      <origin xyz="${rplidar_x_offset} ${rplidar_y_offset} ${rplidar_z_offset}"
+              rpy="0 0 ${pi/2}"/>
+    </xacro:rplidar>
+  </xacro:if>
 
   <xacro:camera_bracket name="oakd_camera_bracket">
     <origin xyz="${camera_mount_x_offset} ${camera_mount_y_offset} ${camera_mount_z_offset}"/>
   </xacro:camera_bracket>
 
-  <xacro:oakd model="pro" parent_link="oakd_camera_bracket">
+  <xacro:oakd model="pro" parent_link="oakd_camera_bracket" namespace="$(arg namespace)">
     <origin xyz="${oakd_pro_x_offset} ${oakd_pro_y_offset} ${oakd_pro_z_offset}"/>
   </xacro:oakd>
+
+  <!-- Proximity sensors ring on base_link -->
+  <xacro:proximity_ring parent_link="base_link" gazebo="$(arg gazebo)" namespace="$(arg namespace)" radius="0.16" z_offset="0.05"/>
+
+  <!-- Ground truth odometry publisher for Gazebo -->
+  <xacro:arg name="gazebo" default=""/>
+  <xacro:if value="${('$(arg gazebo)' == 'ignition' or '$(arg gazebo)' == 'gazebo')}">
+    <gazebo>
+      <plugin filename="libgz-sim-odometry-publisher-system.so" name="gz::sim::systems::OdometryPublisher">
+        <odom_topic>$(arg namespace)/ground_truth_odom</odom_topic>
+        <odom_frame>mission</odom_frame>
+        <robot_base_frame>base_footprint</robot_base_frame>
+        <odom_publish_frequency>10</odom_publish_frequency>
+      </plugin>
+    </gazebo>
+  </xacro:if>
 
 </robot>

@@ -20,19 +20,22 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, Command, TextSubstitution, PathJoinSubstitution, PythonExpression
 
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     sim_dir = get_package_share_directory('nav2_minimal_tb4_sim')
+    desc_dir = get_package_share_directory('nav2_minimal_tb4_description')
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     namespace = LaunchConfiguration('namespace')
     use_simulator = LaunchConfiguration('use_simulator')
+    use_rviz = LaunchConfiguration('use_rviz')
+    rviz_config_file = LaunchConfiguration('rviz_config_file')
     robot_name = LaunchConfiguration('robot_name')
-    # robot_sdf = LaunchConfiguration('robot_sdf')
+    robot_sdf = LaunchConfiguration('robot_sdf')
     pose = {'x': LaunchConfiguration('x_pose', default='-8.00'),
             'y': LaunchConfiguration('y_pose', default='-0.50'),
             'z': LaunchConfiguration('z_pose', default='0.01'),
@@ -62,6 +65,30 @@ def generate_launch_description():
         default_value='turtlebot4',
         description='name of the robot')
 
+    declare_robot_sdf_cmd = DeclareLaunchArgument(
+        'robot_sdf',
+        default_value='',
+        description='Path to robot URDF/xacro file')
+
+    declare_use_rviz_cmd = DeclareLaunchArgument(
+        'use_rviz',
+        default_value='False',
+        description='Whether to start RViz for this robot')
+
+    declare_rviz_config_file_cmd = DeclareLaunchArgument(
+        'rviz_config_file',
+        default_value=os.path.join(desc_dir, 'rviz', 'config.rviz'),
+        description='Full path to the RVIZ config file to use')
+
+    # Select bridge config: full config with joint_states when RViz is enabled,
+    # config without joint_states when RViz is disabled (for performance)
+    # Both include ground_truth_odom and proximity sensors
+    bridge_config_file = PythonExpression([
+        "'" + os.path.join(sim_dir, 'configs', 'tb4_bridge.yaml') + "' if '",
+        use_rviz,
+        "' == 'True' else '" + os.path.join(sim_dir, 'configs', 'tb4_bridge_no_rviz.yaml') + "'"
+    ])
+
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -69,10 +96,9 @@ def generate_launch_description():
         namespace=namespace,
         parameters=[
             {
-                'config_file': os.path.join(
-                    sim_dir, 'configs', 'tb4_bridge.yaml'
-                ),
+                'config_file': bridge_config_file,
                 'use_sim_time': use_sim_time,
+                'expand_gz_topic_names': True,
             }
         ],
         output='screen',
@@ -87,18 +113,25 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': use_sim_time,
         }],
-        arguments=['/rgbd_camera/image'])
+        arguments=[PathJoinSubstitution([namespace, 'rgbd_camera/image'])]
+    )
 
-    camera_bridge_depth = Node(
-        package='ros_gz_image',
-        executable='image_bridge',
-        name='bridge_gz_ros_camera_depth',
+    # Process xacro file with namespace parameter
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
         namespace=namespace,
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
+            'robot_description': Command(['xacro', ' ', robot_sdf, ' ', 'namespace:=', namespace])
         }],
-        arguments=['/rgbd_camera/depth_image'])
+        remappings=[
+            ('/tf', 'tf'),
+            ('/tf_static', 'tf_static'),
+        ]
+    )
 
     spawn_model = Node(
         condition=IfCondition(use_simulator),
@@ -114,15 +147,34 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
+    rviz_cmd = Node(
+        condition=IfCondition(use_rviz),
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        namespace=namespace,
+        output='screen',
+        arguments=['-d', rviz_config_file],
+        parameters=[{'use_sim_time': use_sim_time}],
+        remappings=[
+            ('/tf', 'tf'),
+            ('/tf_static', 'tf_static'),
+        ]
+    )
+
     # Create the launch description and populate
     ld = LaunchDescription()
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_robot_name_cmd)
+    ld.add_action(declare_robot_sdf_cmd)
     ld.add_action(declare_use_simulator_cmd)
     ld.add_action(declare_use_sim_time_cmd)
+    ld.add_action(declare_use_rviz_cmd)
+    ld.add_action(declare_rviz_config_file_cmd)
 
+    ld.add_action(robot_state_publisher)
     ld.add_action(bridge)
     ld.add_action(camera_bridge_image)
-    ld.add_action(camera_bridge_depth)
     ld.add_action(spawn_model)
+    ld.add_action(rviz_cmd)
     return ld

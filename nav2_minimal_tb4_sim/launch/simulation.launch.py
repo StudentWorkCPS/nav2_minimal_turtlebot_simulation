@@ -53,12 +53,13 @@ def generate_launch_description():
     use_rviz = LaunchConfiguration('use_rviz')
     use_simulator = LaunchConfiguration('use_simulator')
     use_robot_state_pub = LaunchConfiguration('use_robot_state_pub')
+    spawn_robot = LaunchConfiguration('spawn_robot')
     headless = LaunchConfiguration('headless')
     world = LaunchConfiguration('world')
     pose = {
-        'x': LaunchConfiguration('x_pose', default='-8.00'),
+        'x': LaunchConfiguration('x_pose', default='0.00'),
         'y': LaunchConfiguration('y_pose', default='0.00'),
-        'z': LaunchConfiguration('z_pose', default='0.01'),
+        'z': LaunchConfiguration('z_pose', default='0.05'),
         'R': LaunchConfiguration('roll', default='0.00'),
         'P': LaunchConfiguration('pitch', default='0.00'),
         'Y': LaunchConfiguration('yaw', default='0.00'),
@@ -113,9 +114,15 @@ def generate_launch_description():
         'headless', default_value='False', description='Whether to execute gzclient'
     )
 
+    declare_spawn_robot_cmd = DeclareLaunchArgument(
+        'spawn_robot',
+        default_value='True',
+        description='Whether to spawn a robot (disable for multi-robot scenarios)'
+    )
+
     declare_world_cmd = DeclareLaunchArgument(
         'world',
-        default_value=os.path.join(sim_dir, 'worlds', 'depot.sdf'),
+        default_value=os.path.join(sim_dir, 'worlds', 'mission.sdf'),
         description='Full path to world model file to load',
     )
 
@@ -148,6 +155,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz2',
+        namespace=namespace,
         output='screen',
         arguments=['-d', rviz_config_file],
         parameters=[{'use_sim_time': use_sim_time}],
@@ -177,6 +185,18 @@ def generate_launch_description():
     set_env_vars_resources = AppendEnvironmentVariable(
             'GZ_SIM_RESOURCE_PATH',
             os.path.join(sim_dir, 'worlds'))
+    
+    # Global clock bridge - only one instance to avoid duplicate /clock publishers
+    clock_bridge = Node(
+        condition=IfCondition(use_simulator),
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='clock_bridge',
+        output='screen',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+    
     gazebo_client = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('ros_gz_sim'),
@@ -190,7 +210,9 @@ def generate_launch_description():
     gz_robot = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(launch_dir, 'spawn_tb4.launch.py')),
+        condition=IfCondition(spawn_robot),
         launch_arguments={'namespace': namespace,
+                          'use_rviz': use_rviz,
                           'use_simulator': use_simulator,
                           'use_sim_time': use_sim_time,
                           'robot_name': robot_name,
@@ -214,6 +236,7 @@ def generate_launch_description():
     ld.add_action(declare_use_simulator_cmd)
     ld.add_action(declare_use_robot_state_pub_cmd)
     ld.add_action(declare_simulator_cmd)
+    ld.add_action(declare_spawn_robot_cmd)
     ld.add_action(declare_world_cmd)
     ld.add_action(declare_robot_name_cmd)
     ld.add_action(declare_robot_sdf_cmd)
@@ -221,12 +244,12 @@ def generate_launch_description():
     ld.add_action(set_env_vars_resources)
     ld.add_action(world_sdf_xacro)
     ld.add_action(remove_temp_sdf_file)
+    ld.add_action(clock_bridge)
     ld.add_action(gz_robot)
     ld.add_action(gazebo_server)
     ld.add_action(gazebo_client)
 
     # Add the actions to launch all of the navigation nodes
     ld.add_action(start_robot_state_publisher_cmd)
-    ld.add_action(rviz_cmd)
 
     return ld

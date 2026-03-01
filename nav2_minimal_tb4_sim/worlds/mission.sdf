@@ -1,0 +1,333 @@
+<?xml version='1.0' encoding='ASCII'?>
+<sdf version='1.7'>
+  <world name='mission'>
+
+    <physics type="ode">
+      <max_step_size>0.02</max_step_size>
+      <real_time_factor>5.0</real_time_factor>
+      <solver>
+        <type>quick</type>
+        <iters>50</iters>
+        <sor>1.3</sor>
+      </solver>
+      <constraints>
+        <contact_max_correcting_vel>200</contact_max_correcting_vel>
+        <contact_surface_layer>0.01</contact_surface_layer>
+      </constraints>
+    </physics>
+
+    <scene>
+      <ambient>1 1 1 1</ambient>
+      <background>1 1 1 1</background>
+      <shadows>0</shadows>
+      <grid>false</grid>
+    </scene>
+    
+    <plugin name="gz::sim::systems::Physics" filename="gz-sim-physics-system" />
+    <plugin name="gz::sim::systems::UserCommands" filename="gz-sim-user-commands-system" />
+    <plugin name="gz::sim::systems::SceneBroadcaster" filename="gz-sim-scene-broadcaster-system" />
+    <plugin name="gz::sim::systems::Contact" filename="gz-sim-contact-system" />
+    <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
+        <render_engine>ogre2</render_engine>
+    </plugin>
+´´
+    <!-- Grey floor (thicker to avoid sinking) -->
+    <model name="floor">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>6 6 0.1</size> <!-- 6x6 m arena, 10 cm thick -->
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>6 6 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <gazebo reference="collision">
+          <friction>
+            <ode>
+              <mu>0.8</mu>
+              <mu2>0.8</mu2>
+              <slip1>0.01</slip1>
+              <slip2>0.01</slip2>
+            </ode>
+          </friction>
+        </gazebo>
+      </link>
+    </model>
+
+    <!-- White patch on one half -->
+    <model name="white_patch">
+      <static>true</static>
+      <pose>0 2 0.055 0 0 0</pose> <!-- Raised above thicker floor -->
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>6 2 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Two black circular patches -->
+    <model name="black_patch1">
+      <static>true</static>
+      <pose>-1.5 -1.0 0.055 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>0.01</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="black_patch2">
+      <static>true</static>
+      <pose>1.5 -1.0 0.055 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>0.01</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Light source -->
+    <model name="light_marker">
+      <static>true</static>
+      <pose>0 3.5 1.5 0 0 0</pose> <!-- above white patch -->
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.2</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>1 1 0 1</ambient>
+            <diffuse>1 1 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Square walls (5x5 m arena) -->
+    <model name="walls">
+      <static>true</static>
+      <link name="link">
+        <!-- North wall -->
+        <visual name="wall_n">
+          <pose>0 2.5 0.5 0 0 0</pose>
+          <geometry><box><size>5 0.1 1</size></box></geometry>
+          <material><ambient>0.6 0.4 0.2 1</ambient><diffuse>0.6 0.4 0.2 1</diffuse></material>
+        </visual>
+        <collision name="wall_n_col">
+          <pose>0 2.5 0.5 0 0 0</pose>
+          <geometry><box><size>5 0.1 1</size></box></geometry>
+        </collision>
+
+        <!-- East wall -->
+        <visual name="wall_e">
+          <pose>2.5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 5 1</size></box></geometry>
+          <material><ambient>0.6 0.4 0.2 1</ambient><diffuse>0.6 0.4 0.2 1</diffuse></material>
+        </visual>
+        <collision name="wall_e_col">
+          <pose>2.5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 5 1</size></box></geometry>
+        </collision>
+
+        <!-- South wall -->
+        <visual name="wall_s">
+          <pose>0 -2.5 0.5 0 0 0</pose>
+          <geometry><box><size>5 0.1 1</size></box></geometry>
+          <material><ambient>0.6 0.4 0.2 1</ambient><diffuse>0.6 0.4 0.2 1</diffuse></material>
+        </visual>
+        <collision name="wall_s_col">
+          <pose>0 -2.5 0.5 0 0 0</pose>
+          <geometry><box><size>5 0.1 1</size></box></geometry>
+        </collision>
+
+        <!-- West wall -->
+        <visual name="wall_w">
+          <pose>-2.5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 5 1</size></box></geometry>
+          <material><ambient>0.6 0.4 0.2 1</ambient><diffuse>0.6 0.4 0.2 1</diffuse></material>
+        </visual>
+        <collision name="wall_w_col">
+          <pose>-2.5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 5 1</size></box></geometry>
+        </collision>
+
+      </link>
+    </model>
+
+    <!-- Red ball target -->
+    <!-- <model name="red_ball">
+      <static>false</static>
+      <pose>1.0 1.5 0.17 0 0 0</pose> 
+      <link name="link">
+        <inertial>
+          <mass>0.5</mass>
+          <inertia>
+            <ixx>0.00068</ixx>
+            <iyy>0.00068</iyy>
+            <izz>0.00068</izz>
+          </inertia>
+        </inertial>
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.17</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>1 0 0 1</ambient>
+            <diffuse>1 0 0 1</diffuse>
+            <specular>0.5 0.5 0.5 1</specular>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>0.17</radius>
+            </sphere>
+          </geometry>
+        </collision>
+      </link>
+    </model> -->
+
+    <!-- ArUco Marker 0 - Top wall, facing middle -->
+    <model name="aruco_marker_0">
+      <static>true</static>
+      <pose>0.0 2.4 0.23 3.1416 1.5708 0</pose>
+      <link name='marker'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.35 0.001 0.35</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+
+            <pbr>
+              <metal>
+                <albedo_map>file:///home/ben/ros2_ws/nav2_minimal_turtlebot_simulation/nav2_minimal_tb4_sim/worlds/models/textures/aruco_mark_1.png</albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.35 0.001 0.35</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ArUco Marker 1 - Bottom wall, facing middle -->
+    <model name="aruco_marker_1">
+      <static>true</static>
+      <pose>0.0 -2.4 0.23 3.1416 1.5708 3.1416</pose>
+      <link name='marker'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.35 0.001 0.35</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+
+            <pbr>
+              <metal>
+                <albedo_map>file:///home/ben/ros2_ws/nav2_minimal_turtlebot_simulation/nav2_minimal_tb4_sim/worlds/models/textures/aruco_mark_1.png</albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.35 0.001 0.35</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ArUco Marker 2 - Right wall, facing middle -->
+    <model name="aruco_marker_2">
+      <static>true</static>
+      <pose>2.4 0.0 0.23 3.1416 1.5708 1.5708</pose>
+      <link name='marker'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.35 0.001 0.35</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+
+            <pbr>
+              <metal>
+                <albedo_map>file:///home/ben/ros2_ws/nav2_minimal_turtlebot_simulation/nav2_minimal_tb4_sim/worlds/models/textures/aruco_mark_1.png</albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <box>
+              <size>0.35 0.001 0.35</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+  </world>
+</sdf>
